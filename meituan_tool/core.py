@@ -166,6 +166,7 @@ def title_key(raw: str) -> str:
     # 名称前的【美团】、[TEST]、【最后一次6.9元】等均为渠道/营销展示标签，
     # 不改变实际商品名称；仅移除开头连续出现的标签，正文中的方括号内容保留。
     cleaned = re.sub(r"^(?:\s*[【\[][^】\]]{1,40}[】\]]\s*)+", "", norm(raw), flags=re.I)
+    cleaned = cleaned.replace("（", "(").replace("）", ")")
     return re.sub(r"\s+", "", cleaned).lower()
 
 
