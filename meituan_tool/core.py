@@ -417,6 +417,10 @@ def normalize_validity_text(raw: str) -> str:
         "",
         normalized,
     )
+    # 总表常仅写“14天”，后台则补充“自购买次日起14天，购买当天默认可用”。
+    # 日期范围已在上层单独严格处理；无日期时按相同天数视为同一有效期。
+    if duration := re.search(r"自购买(?:次日|之日)起\s*(\d+)\s*天", normalized):
+        return f"{duration.group(1)}天"
     return re.sub(r"[\s、,，;；]", "", normalized)
 
 
