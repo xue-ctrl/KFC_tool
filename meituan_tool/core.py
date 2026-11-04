@@ -387,7 +387,7 @@ def comparable(raw: str, field: str) -> str:
         return date_boundary(raw, True) or norm(raw)
     if field == "使用有效期":
         parsed = validity_dates(raw)
-        return "|".join(parsed) if parsed else norm(raw)
+        return "|".join(parsed) if parsed else normalize_validity_text(raw)
     if field in {"美团价", "原价"}:
         return amount(raw) or norm(raw)
     return norm(raw)
@@ -405,6 +405,19 @@ def validity_dates(raw: str) -> list[str]:
         if token not in tokens:
             tokens.append(token)
     return tokens[:2]
+
+
+def normalize_validity_text(raw: str) -> str:
+    """Normalize repeated duration labels without masking a genuinely different validity rule."""
+    normalized = norm(raw)
+    # 例如“30天、自购买次日起30天，购买当天默认可用”中的首个“30天”
+    # 只是总表的重复展示，后面的完整规则才是实际有效期说明。
+    normalized = re.sub(
+        r"^\s*(\d+\s*天)\s*[、,，;；]\s*(?=自购买(?:次日|之日)起\s*\1)",
+        "",
+        normalized,
+    )
+    return re.sub(r"[\s、,，;；]", "", normalized)
 
 
 def rule_validity_value_set(rows: list[tuple[int, dict[str, str]]]) -> tuple[list[str], list[int]]:
