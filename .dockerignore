@@ -1,0 +1,25 @@
+# 本机环境、缓存和历史结果无需进入镜像。
+.git
+.venv*
+**/.venv
+**/__pycache__
+**/.pytest_cache
+*.pyc
+.DS_Store
+*.zip
+
+# 历史版本/旧工具不属于当前统一部署版本。
+api_assistant
+local_assistant
+meituan_tool 2
+KFC素材核查店小助_VSCode运行包
+dist
+
+# 下载结果通过 compose 卷持久化，不打进镜像。
+unified_tool/data/outputs
+douyin_tool/data/outputs
+meituan_tool/data/outputs
+
+# 不需要随镜像分发的说明素材。
+scripts
+worker

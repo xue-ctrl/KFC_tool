@@ -1,0 +1,22 @@
+services:
+  kfc-material-checker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kfc-material-checker:latest
+    container_name: kfc-material-checker
+    restart: unless-stopped
+    ports:
+      # 服务器对外端口为 8790；容器内应用仍运行在 8788。
+      - "8790:8788"
+    volumes:
+      # 保留用户下载过的核对结果；更新镜像或重建容器不会丢失。
+      - ./runtime/outputs:/app/unified_tool/data/outputs
+    environment:
+      TZ: Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8788/', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
