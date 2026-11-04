@@ -421,6 +421,16 @@ def normalize_validity_text(raw: str) -> str:
     # 日期范围已在上层单独严格处理；无日期时按相同天数视为同一有效期。
     if t_plus := re.search(r"\bT\s*\+\s*(\d+)", normalized, flags=re.I):
         return f"{t_plus.group(1)}天"
+    if duration_only := re.match(r"^\s*(\d+)\s*天", normalized):
+        days = duration_only.group(1)
+        suffix = normalized[duration_only.end():]
+        # “14天0930-2300”或“5天、5天0930-2300”中的时段不属于有效期；
+        # 仅当其余内容确实只有同一天数与时段时才忽略，避免掩盖其他规则差异。
+        duration_pattern = rf"{re.escape(days)}\s*天"
+        suffix = re.sub(rf"(?:{duration_pattern})?\s*\d{{1,2}}:?\d{{2}}\s*[-至]\s*\d{{1,2}}:?\d{{2}}", "", suffix)
+        suffix = re.sub(duration_pattern, "", suffix)
+        if not re.sub(r"[\s、,，;；]", "", suffix):
+            return f"{days}天"
     if duration := re.search(r"自购买(?:次日|之日)起\s*(\d+)\s*天", normalized):
         return f"{duration.group(1)}天"
     return re.sub(r"[\s、,，;；]", "", normalized)

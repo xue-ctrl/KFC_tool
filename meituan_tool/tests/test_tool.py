@@ -66,6 +66,71 @@ def test_validity_can_be_extracted_from_backend_rule_description() -> None:
     assert sheet["D2"].value == "10-24|11-01"
 
 
+def test_validity_ignores_duplicate_duration_prefix() -> None:
+    master_data = workbook_bytes(
+        ["优惠券ID", "有效期"],
+        [["SZKFCMT-1", "30天、自购买次日起30天，购买当天默认可用"]],
+    )
+    backend_data = workbook_bytes(
+        ["商家商品id", "券有效期"],
+        [["SZKFCMT-1", "自购买次日起30天,购买当天默认可用"]],
+    )
+    report, totals = create_total_table_report(master_data, backend_data, ["使用有效期"])
+    sheet = load_workbook(io.BytesIO(report), data_only=True)["核查结果"]
+    assert sheet["E2"].value == "通过"
+    assert totals["通过"] == 1
+
+
+def test_validity_allows_plain_duration_to_match_detailed_duration_rule() -> None:
+    master_data = workbook_bytes(
+        ["优惠券ID", "有效期"],
+        [["SZKFCMT-1", "14天"]],
+    )
+    backend_data = workbook_bytes(
+        ["商家商品id", "券有效期"],
+        [["SZKFCMT-1", "自购买次日起14天,购买当天默认可用"]],
+    )
+    report, totals = create_total_table_report(master_data, backend_data, ["使用有效期"])
+    sheet = load_workbook(io.BytesIO(report), data_only=True)["核查结果"]
+    assert sheet["E2"].value == "通过"
+    assert totals["通过"] == 1
+
+
+def test_validity_t_plus_duration_matches_detailed_duration_rule() -> None:
+    master_data = workbook_bytes(
+        ["优惠券ID", "有效期"],
+        [["SZKFCMT-1", "T+30 0930-2300"]],
+    )
+    backend_data = workbook_bytes(
+        ["商家商品id", "券有效期"],
+        [["SZKFCMT-1", "自购买次日起30天,购买当天默认可用"]],
+    )
+    report, totals = create_total_table_report(master_data, backend_data, ["使用有效期"])
+    sheet = load_workbook(io.BytesIO(report), data_only=True)["核查结果"]
+    assert sheet["E2"].value == "通过"
+    assert totals["通过"] == 1
+
+
+def test_validity_ignores_appended_usage_time() -> None:
+    """A duration remains the same validity rule when the source appends hours."""
+    for source_value, backend_value in [
+        ("14天0930-2300", "14天"),
+        ("5天、5天0930-2300", "5天"),
+    ]:
+        master_data = workbook_bytes(
+            ["优惠券ID", "有效期"],
+            [["SZKFCMT-1", source_value]],
+        )
+        backend_data = workbook_bytes(
+            ["商家商品id", "券有效期"],
+            [["SZKFCMT-1", backend_value]],
+        )
+        report, totals = create_total_table_report(master_data, backend_data, ["使用有效期"])
+        sheet = load_workbook(io.BytesIO(report), data_only=True)["核查结果"]
+        assert sheet["E2"].value == "通过"
+        assert totals["通过"] == 1
+
+
 def test_missing_master_or_backend_is_review() -> None:
     extra_backend = workbook_bytes(["商家商品id", "项目ID", "项目名称", "菜品备注"], [["SZKFCMT-2", "P-2", "套餐 B", "鸡腿 1 份"]])
     report, totals = create_total_table_report(master(), extra_backend, ["项目名称"])
@@ -224,6 +289,21 @@ def test_product_name_passes_when_marketing_tag_and_duplicate_name_are_present()
     assert totals["通过"] == 1
 
 
+def test_product_name_passes_when_parenthesis_width_differs() -> None:
+    master_data = workbook_bytes(
+        ["商家商品id", "项目名称"],
+        [["SZKFCMT-1", "【买一送一】1份热辣大翅根(2根)"]],
+    )
+    backend_data = workbook_bytes(
+        ["商家商品id", "项目名称"],
+        [["SZKFCMT-1", "【买一送一】1份热辣大翅根（2根）"]],
+    )
+    report, totals = create_total_table_report(master_data, backend_data, ["项目名称"])
+    sheet = load_workbook(io.BytesIO(report), data_only=True)["核查结果"]
+    assert sheet["E2"].value == "通过"
+    assert totals["通过"] == 1
+
+
 def test_empty_dish_notes_on_both_sides_do_not_require_review() -> None:
     master_data = workbook_bytes(
         ["商家商品id", "菜品备注"],
@@ -263,6 +343,21 @@ def test_dish_note_allows_small_non_material_wording_difference() -> None:
     backend_data = workbook_bytes(
         ["商家商品id", "菜品备注"],
         [["SZKFCMT-1", "桂花风味酸梅汤（大）"]],
+    )
+    report, totals = create_total_table_report(master_data, backend_data, ["菜品备注"])
+    sheet = load_workbook(io.BytesIO(report), data_only=True)["核查结果"]
+    assert sheet["E2"].value == "通过"
+    assert totals["通过"] == 1
+
+
+def test_dish_note_ignores_parenthesized_single_item_packaging_count() -> None:
+    master_data = workbook_bytes(
+        ["商家商品id", "菜品备注"],
+        [["SZKFCMT-1", "2份甜辣喷醋生炸大鸡架"]],
+    )
+    backend_data = workbook_bytes(
+        ["商家商品id", "菜品备注"],
+        [["SZKFCMT-1", "产品包含：2份甜辣喷醋生炸大鸡架（4块）"]],
     )
     report, totals = create_total_table_report(master_data, backend_data, ["菜品备注"])
     sheet = load_workbook(io.BytesIO(report), data_only=True)["核查结果"]
