@@ -479,6 +479,9 @@ def normalize_dish_note(value_: str) -> str:
     normalized = norm(value_).replace("风味", "")
     normalized = normalized.replace("原味冰淇淋原味花筒", "原味冰淇淋花筒")
     normalized = normalized.replace("大杯", "大").replace("小杯", "小")
+    # 单品括号内的“4块/2根/3串”等包装规格常在一侧省略，不改变菜品本身；
+    # 套餐的任选份数、加购数量仍保留参与核对。
+    normalized = re.sub(r"[（(]\s*\d+\s*(?:块|根|串|个|杯|份)(?:装)?\s*[）)]", "", normalized)
     normalized = re.sub(r"^产品包含[：:]", "", normalized)
     return re.sub(r"[\s，,、。.;；:：()（）]", "", normalized)
 
@@ -490,7 +493,10 @@ def numeric_facts(value_: str) -> tuple[str, ...]:
 
 def dish_notes_similar(source: str, target: str) -> bool:
     """Allow small naming differences while preserving every quantity."""
-    if numeric_facts(source) != numeric_facts(target):
+    def material_numbers(value_: str) -> tuple[str, ...]:
+        return numeric_facts(re.sub(r"[（(]\s*\d+\s*(?:块|根|串|个|杯|份)(?:装)?\s*[）)]", "", value_))
+
+    if material_numbers(source) != material_numbers(target):
         return False
     return SequenceMatcher(None, source, target).ratio() >= 0.88
 
